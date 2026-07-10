@@ -46,11 +46,34 @@ bun run build
 bun start
 ```
 
-Deploy to Vercel:
+Deploy to Vercel (remote build on Vercel):
 
 ```bash
 bun run vercel
 ```
+
+Or prebuilt (matches CI — build locally, upload artifacts):
+
+```bash
+bun run vercel:pull
+bun run vercel:build
+bun run vercel:deploy
+```
+
+### Vercel setup
+
+The project must use the **repository root** as its Root Directory (not `dist`). If deploy fails with *"vercel.json should be inside of the provided root directory"* or *"No Output Directory named dist found"*, fix it once in the dashboard:
+
+**Project Settings → General → Root Directory** → clear the field (leave empty) → Save.
+
+Build settings (also in `vercel.json`):
+
+| Setting | Value |
+|---------|-------|
+| Framework | Other |
+| Install Command | `bun install` |
+| Build Command | `bun run build` |
+| Output Directory | `dist` |
 
 ## Stack
 
