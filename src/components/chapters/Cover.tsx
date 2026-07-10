@@ -1,8 +1,8 @@
+import { useVisibilityPause } from "@/hooks/useVisibilityPause";
+import { cn } from "@/lib/cn";
 import { SceneCanvas } from "@/scenes/SceneCanvas";
 import { NucleusScene } from "@/scenes/nucleus/NucleusScene";
-import { useVisibilityPause } from "@/hooks/useVisibilityPause";
 import { forwardRef } from "react";
-import { cn } from "@/lib/cn";
 
 export const Cover = forwardRef<HTMLElement>(function Cover(_, ref) {
   const { ref: visibilityRef, visible } = useVisibilityPause<HTMLElement>();

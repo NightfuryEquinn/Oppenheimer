@@ -1,7 +1,7 @@
 import { NAV_CHAPTERS, SCROLL_SECTION_IDS } from "@/data/nav";
 import { useBackgroundMusic } from "@/hooks/useBackgroundMusic";
-import { useScrollSpy } from "@/hooks/useScrollSpy";
 import { useHudClock } from "@/hooks/useHudClock";
+import { useScrollSpy } from "@/hooks/useScrollSpy";
 import { cn } from "@/lib/cn";
 import { forwardRef } from "react";
 

@@ -1,8 +1,8 @@
-import { computeEmc2 } from "@/lib/physics/emc2";
-import { formatCommas, formatSciEnergy, formatTnt } from "@/lib/format/energy";
-import { formatMass } from "@/lib/format/mass";
 import { ChapterHead, Section } from "@/components/layout/ChapterHead";
 import { cn } from "@/lib/cn";
+import { formatCommas, formatSciEnergy, formatTnt } from "@/lib/format/energy";
+import { formatMass } from "@/lib/format/mass";
+import { computeEmc2 } from "@/lib/physics/emc2";
 import { useState } from "react";
 
 const PRESETS = [
@@ -114,7 +114,7 @@ export function Equivalence() {
 
           <div className="relative h-2 bg-bg">
             <div
-              className="absolute inset-y-0 left-0 bg-gradient-to-r from-steel via-amber to-blood"
+              className="absolute inset-y-0 left-0 bg-linear-to-r from-steel via-amber to-blood"
               style={{ width: `${result.barPercent}%` }}
             />
           </div>

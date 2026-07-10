@@ -1,6 +1,6 @@
-import type { ElementSymbol } from "@/types";
 import { ELEMENT_SYMBOLS } from "@/data/elements";
 import { cn } from "@/lib/cn";
+import type { ElementSymbol } from "@/types";
 
 interface ElementPickerProps {
   active: ElementSymbol;

@@ -1,9 +1,9 @@
-import { PAPERS } from "@/data/papers";
-import type { PaperTag } from "@/types";
+import { ChapterHead, Section } from "@/components/layout/ChapterHead";
 import { ArchiveGrid } from "@/components/ui/ArchiveGrid";
 import { PaperFilters } from "@/components/ui/PaperFilters";
-import { ChapterHead, Section } from "@/components/layout/ChapterHead";
+import { PAPERS } from "@/data/papers";
 import { cn } from "@/lib/cn";
+import type { PaperTag } from "@/types";
 import { useState } from "react";
 
 export function Papers() {
@@ -34,10 +34,10 @@ export function Papers() {
             key={`${paper.year}-${paper.title}`}
             className={cn(
               "grid gap-4 border-b border-rule py-8 md:grid-cols-[72px_1fr]",
-              paper.seminial && "border-l-2 border-l-amber pl-4",
+              paper.seminal && "border-l-2 border-l-amber pl-4",
             )}
           >
-            <div className="font-mono text-sm text-amber">{paper.year}</div>
+            <div className="font-mono text-sm text-amber">{paper.year} - {paper.seminal && 'Seminal'}</div>
             <div>
               <h3 className="mb-1 font-serif text-xl text-paper">
                 {paper.title}

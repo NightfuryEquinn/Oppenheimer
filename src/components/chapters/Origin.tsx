@@ -1,7 +1,7 @@
 import portrait from "@/assets/oppenheimer.jpg";
-import { TIMELINE_EVENTS } from "@/data/timeline";
 import { ChapterHead, Section } from "@/components/layout/ChapterHead";
 import { Timeline } from "@/components/ui/Timeline";
+import { TIMELINE_EVENTS } from "@/data/timeline";
 
 export function Origin() {
   return (

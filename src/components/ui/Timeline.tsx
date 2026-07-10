@@ -1,5 +1,5 @@
-import type { TimelineEvent } from "@/types";
 import { cn } from "@/lib/cn";
+import type { TimelineEvent } from "@/types";
 
 interface TimelineProps {
   events: TimelineEvent[];

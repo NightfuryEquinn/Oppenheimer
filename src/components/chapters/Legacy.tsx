@@ -9,7 +9,7 @@ export function Legacy() {
     >
       <LegacyParticles />
 
-      <div className="relative z-10 mx-auto w-full max-w-[var(--max-width-content)] px-6 md:px-16">
+      <div className="relative z-10 mx-auto w-full max-w-content px-6 md:px-16">
         <div className="mb-8 font-mono text-[10px] tracking-[0.3em] text-ink-faint uppercase">
           — Bhagavad Gītā · Ch. 11, V. 32 ———
         </div>

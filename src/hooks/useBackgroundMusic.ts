@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Howl } from "howler";
 import soundtrack from "@/assets/oppenheimer-soundtrack.mp3";
+import { Howl } from "howler";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const STORAGE_KEY = "oppenheimer-music-enabled";
 

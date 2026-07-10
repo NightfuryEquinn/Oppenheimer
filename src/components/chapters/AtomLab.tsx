@@ -1,11 +1,11 @@
-import { ELEMENTS } from "@/data/elements";
-import type { ElementSymbol } from "@/types";
-import { distributeElectrons } from "@/lib/physics/atomShells";
-import { ElementPicker } from "@/components/ui/ElementPicker";
 import { ChapterHead, Section } from "@/components/layout/ChapterHead";
+import { ElementPicker } from "@/components/ui/ElementPicker";
+import { ELEMENTS } from "@/data/elements";
 import { useVisibilityPause } from "@/hooks/useVisibilityPause";
+import { distributeElectrons } from "@/lib/physics/atomShells";
 import { SceneCanvas } from "@/scenes/SceneCanvas";
 import { AtomScene } from "@/scenes/atom/AtomScene";
+import type { ElementSymbol } from "@/types";
 import { useState } from "react";
 
 export function AtomLab() {

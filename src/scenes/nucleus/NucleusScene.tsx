@@ -1,7 +1,7 @@
-import { useFrame } from "@react-three/fiber";
-import { OrbitingElectron } from "@/scenes/electron/OrbitingElectron";
 import { NucleonBloomEffect } from "@/scenes/NucleonBloom";
+import { OrbitingElectron } from "@/scenes/electron/OrbitingElectron";
 import { NucleonMesh } from "@/scenes/nucleus/NucleonMesh";
+import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Halo } from "./HaloMaterial";

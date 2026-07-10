@@ -1,6 +1,6 @@
-import type { Paper, PaperTag } from "@/types";
 import { PAPER_TAGS } from "@/data/papers";
 import { cn } from "@/lib/cn";
+import type { Paper, PaperTag } from "@/types";
 
 interface PaperFiltersProps {
   activeTag: PaperTag | "all";

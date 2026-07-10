@@ -28,6 +28,7 @@ export function ChainCanvas({ sim, onStats, className }: ChainCanvasProps) {
     glStateRef.current = createChainGL(gl, canvas);
 
     function resize() {
+      if (!stage) return;
       const w = stage.clientWidth;
       const h = stage.clientHeight;
       glStateRef.current?.resize(w, h);

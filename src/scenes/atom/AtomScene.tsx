@@ -1,6 +1,6 @@
+import { NucleonBloomEffect } from "@/scenes/NucleonBloom";
 import type { ElementData } from "@/types";
 import { OrbitControls } from "@react-three/drei";
-import { NucleonBloomEffect } from "@/scenes/NucleonBloom";
 import { AtomModel, AtomSceneLights } from "./AtomModel";
 
 interface AtomSceneProps {

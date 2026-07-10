@@ -1,22 +1,22 @@
+import { AtomLab } from "@/components/chapters/AtomLab";
+import { ChainReaction } from "@/components/chapters/ChainReaction";
+import { Cover } from "@/components/chapters/Cover";
+import { Equivalence } from "@/components/chapters/Equivalence";
+import { Legacy } from "@/components/chapters/Legacy";
+import { Origin } from "@/components/chapters/Origin";
+import { Papers } from "@/components/chapters/Papers";
+import { Trinity } from "@/components/chapters/Trinity";
+import { ClassifiedOverlay } from "@/components/layout/ClassifiedOverlay";
 import { Grain } from "@/components/layout/Grain";
 import { HUD } from "@/components/layout/HUD";
-import { Vignette } from "@/components/layout/Vignette";
 import { ScreenLimitOverlay } from "@/components/layout/ScreenLimitOverlay";
-import { ClassifiedOverlay } from "@/components/layout/ClassifiedOverlay";
-import { Cover } from "@/components/chapters/Cover";
-import { Origin } from "@/components/chapters/Origin";
-import { AtomLab } from "@/components/chapters/AtomLab";
-import { Equivalence } from "@/components/chapters/Equivalence";
-import { ChainReaction } from "@/components/chapters/ChainReaction";
-import { Trinity } from "@/components/chapters/Trinity";
-import { Papers } from "@/components/chapters/Papers";
-import { Legacy } from "@/components/chapters/Legacy";
+import { Vignette } from "@/components/layout/Vignette";
 import { IntroProvider, useIntro } from "@/context/IntroContext";
 import { useChapterScrollReveal } from "@/hooks/useChapterScrollReveal";
 import { useCoverReveal } from "@/hooks/useCoverReveal";
+import "@/styles/index.css";
 import { animate } from "animejs";
 import { useCallback, useEffect, useRef } from "react";
-import "@/styles/index.css";
 
 function AppContent() {
   const coverRef = useRef<HTMLElement>(null);

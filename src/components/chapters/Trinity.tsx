@@ -1,8 +1,8 @@
-import { ChapterHead, Section } from "@/components/layout/ChapterHead";
-import { TrinityCanvas, TRINITY_LOG_SCHEDULE } from "@/scenes/trinity/TrinityCanvas";
-import type { TrinityLogEntry, TrinityMode } from "@/types";
-import { cn } from "@/lib/cn";
 import nukeSfx from "@/assets/nuke.mp3";
+import { ChapterHead, Section } from "@/components/layout/ChapterHead";
+import { cn } from "@/lib/cn";
+import { TRINITY_LOG_SCHEDULE, TrinityCanvas } from "@/scenes/trinity/TrinityCanvas";
+import type { TrinityLogEntry, TrinityMode } from "@/types";
 import { Howl } from "howler";
 import { useEffect, useRef, useState } from "react";
 

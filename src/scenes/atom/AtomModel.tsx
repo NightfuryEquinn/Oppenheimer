@@ -1,8 +1,8 @@
 import { distributeElectrons } from "@/lib/physics/atomShells";
-import type { ElementData } from "@/types";
 import { OrbitingElectron } from "@/scenes/electron/OrbitingElectron";
 import { Halo } from "@/scenes/nucleus/HaloMaterial";
 import { NucleonMesh } from "@/scenes/nucleus/NucleonMesh";
+import type { ElementData } from "@/types";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";

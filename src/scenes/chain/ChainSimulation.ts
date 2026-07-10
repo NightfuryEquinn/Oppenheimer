@@ -126,6 +126,7 @@ export class ChainSimulation {
         if (next > this.currentGen) this.currentGen = next;
         this.nuclei.forEach((other) => {
           if (other === hit || other.spent) return;
+          if (!hit) return;
           const dd = (other.x - hit.x) ** 2 + (other.y - hit.y) ** 2;
           if (dd < 80 * 80) other.glow = Math.max(other.glow, 0.5);
         });
