@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #07070a;
+  --color-bg-2: #0c0c11;
+  --color-paper: #efe8d8;
+  --color-ink: #c7c1b0;
+  --color-ink-dim: #807b6e;
+  --color-ink-faint: #4a463e;
+  --color-amber: #e8a35a;
+  --color-amber-deep: #c47830;
+  --color-steel: #8fa8c8;
+  --color-blood: #b84a3a;
+  --color-rule: rgba(199, 193, 176, 0.14);
+  --color-rule-strong: rgba(199, 193, 176, 0.3);
+
+  --font-serif: "EB Garamond", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Bebas Neue", "Helvetica Neue", sans-serif;
+
+  --max-width-content: 1440px;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply m-0 min-h-screen overflow-x-hidden bg-bg text-ink font-serif text-[18px] leading-relaxed antialiased;
+    background:
+      radial-gradient(ellipse at 50% -20%, rgba(46, 38, 28, 0.45), transparent 60%),
+      radial-gradient(ellipse at 50% 120%, rgba(41, 28, 20, 0.35), transparent 55%),
+      var(--color-bg);
+  }
+
+  ::selection {
+    @apply bg-amber/30 text-paper;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-amber) 38%, var(--color-ink-faint))
+      var(--color-bg-2);
+  }
+
+  *::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--color-bg-2);
+    border-inline-start: 1px solid var(--color-rule);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-amber) 22%, var(--color-ink-faint)),
+      color-mix(in srgb, var(--color-amber-deep) 18%, var(--color-ink-faint))
+    );
+    border: 2px solid var(--color-bg-2);
+    border-radius: 1px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-amber) 12%, transparent);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-amber) 55%, var(--color-ink-dim)),
+      color-mix(in srgb, var(--color-amber-deep) 45%, var(--color-ink-faint))
+    );
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    background: var(--color-amber);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: var(--color-bg-2);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
