@@ -87,6 +87,11 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  [data-chapter-reveal]:not([data-revealed="true"]) {
+    opacity: 0;
+    transform: translateY(48px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

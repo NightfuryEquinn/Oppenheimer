@@ -2,7 +2,11 @@ import { ChapterHead, Section } from "@/components/layout/ChapterHead";
 import { TrinityCanvas, TRINITY_LOG_SCHEDULE } from "@/scenes/trinity/TrinityCanvas";
 import type { TrinityLogEntry, TrinityMode } from "@/types";
 import { cn } from "@/lib/cn";
+import nukeSfx from "@/assets/nuke.mp3";
+import { Howl } from "howler";
 import { useEffect, useRef, useState } from "react";
+
+const NUKE_SOUND_DELAY_MS = 3000;
 
 export function Trinity() {
   const [mode, setMode] = useState<TrinityMode>("idle");
@@ -15,6 +19,47 @@ export function Trinity() {
   const logIdxRef = useRef(0);
   const modeRef = useRef<TrinityMode>("idle");
   const blastRef = useRef(-1);
+  const nukeSoundRef = useRef<Howl | null>(null);
+  const nukeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function cancelNukeSound() {
+    if (nukeTimerRef.current) {
+      clearTimeout(nukeTimerRef.current);
+      nukeTimerRef.current = null;
+    }
+    nukeSoundRef.current?.stop();
+  }
+
+  function clearNukeTimer() {
+    if (nukeTimerRef.current) {
+      clearTimeout(nukeTimerRef.current);
+      nukeTimerRef.current = null;
+    }
+  }
+
+  useEffect(() => {
+    const sound = new Howl({
+      src: [nukeSfx],
+      volume: 1.5,
+    });
+    nukeSoundRef.current = sound;
+    return () => {
+      cancelNukeSound();
+      sound.unload();
+      nukeSoundRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (mode !== "flash") return;
+
+    nukeTimerRef.current = setTimeout(() => {
+      nukeSoundRef.current?.play();
+      nukeTimerRef.current = null;
+    }, NUKE_SOUND_DELAY_MS);
+
+    return clearNukeTimer;
+  }, [mode]);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -93,6 +138,7 @@ export function Trinity() {
   }, []);
 
   function reset() {
+    cancelNukeSound();
     setMode("idle");
     setBlastT(-1);
     blastRef.current = -1;

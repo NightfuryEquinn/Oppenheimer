@@ -1,16 +1,24 @@
 import { SceneCanvas } from "@/scenes/SceneCanvas";
 import { NucleusScene } from "@/scenes/nucleus/NucleusScene";
 import { useVisibilityPause } from "@/hooks/useVisibilityPause";
+import { forwardRef } from "react";
+import { cn } from "@/lib/cn";
 
-export function Cover() {
-  const { ref, visible } = useVisibilityPause<HTMLElement>();
+export const Cover = forwardRef<HTMLElement>(function Cover(_, ref) {
+  const { ref: visibilityRef, visible } = useVisibilityPause<HTMLElement>();
 
   return (
     <section
       id="cover"
-      ref={ref}
+      ref={(node) => {
+        visibilityRef.current = node;
+        if (typeof ref === "function") ref(node);
+        else if (ref) ref.current = node;
+      }}
       data-screen-label="00 Cover"
-      className="relative flex min-h-screen flex-col justify-end overflow-hidden"
+      className={cn(
+        "relative flex min-h-screen flex-col justify-end overflow-hidden opacity-0",
+      )}
     >
       <SceneCanvas active={visible} className="z-0">
         <NucleusScene bloom={visible} />
@@ -66,4 +74,4 @@ export function Cover() {
       </div>
     </section>
   );
-}
+});

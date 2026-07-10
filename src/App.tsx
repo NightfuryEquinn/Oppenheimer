@@ -1,6 +1,8 @@
 import { Grain } from "@/components/layout/Grain";
 import { HUD } from "@/components/layout/HUD";
 import { Vignette } from "@/components/layout/Vignette";
+import { ScreenLimitOverlay } from "@/components/layout/ScreenLimitOverlay";
+import { ClassifiedOverlay } from "@/components/layout/ClassifiedOverlay";
 import { Cover } from "@/components/chapters/Cover";
 import { Origin } from "@/components/chapters/Origin";
 import { AtomLab } from "@/components/chapters/AtomLab";
@@ -9,16 +11,59 @@ import { ChainReaction } from "@/components/chapters/ChainReaction";
 import { Trinity } from "@/components/chapters/Trinity";
 import { Papers } from "@/components/chapters/Papers";
 import { Legacy } from "@/components/chapters/Legacy";
+import { IntroProvider, useIntro } from "@/context/IntroContext";
+import { useChapterScrollReveal } from "@/hooks/useChapterScrollReveal";
+import { useCoverReveal } from "@/hooks/useCoverReveal";
+import { animate } from "animejs";
+import { useCallback, useEffect, useRef } from "react";
 import "@/styles/index.css";
 
-export function App() {
+function AppContent() {
+  const coverRef = useRef<HTMLElement>(null);
+  const hudRef = useRef<HTMLElement>(null);
+  const { phase, setPhase } = useIntro();
+
+  useCoverReveal(coverRef);
+  useChapterScrollReveal();
+
+  const handleDeclassified = useCallback(() => {
+    setPhase("cover");
+  }, [setPhase]);
+
+  useEffect(() => {
+    document.body.style.overflow = phase === "ready" ? "" : "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [phase]);
+
+  useEffect(() => {
+    if (!hudRef.current) return;
+
+    if (phase === "classified" || phase === "declassifying") {
+      hudRef.current.style.opacity = "0";
+      hudRef.current.style.pointerEvents = "none";
+      return;
+    }
+
+    animate(hudRef.current, {
+      opacity: [0, 1],
+      y: [-8, 0],
+      duration: 900,
+      ease: "outExpo",
+    });
+    hudRef.current.style.pointerEvents = "";
+  }, [phase]);
+
   return (
     <>
       <Grain />
       <Vignette />
-      <HUD />
+      <HUD ref={hudRef} />
+      <ScreenLimitOverlay />
+      <ClassifiedOverlay onDeclassified={handleDeclassified} />
       <main>
-        <Cover />
+        <Cover ref={coverRef} />
         <Origin />
         <AtomLab />
         <Equivalence />
@@ -28,6 +73,14 @@ export function App() {
         <Legacy />
       </main>
     </>
+  );
+}
+
+export function App() {
+  return (
+    <IntroProvider>
+      <AppContent />
+    </IntroProvider>
   );
 }
 

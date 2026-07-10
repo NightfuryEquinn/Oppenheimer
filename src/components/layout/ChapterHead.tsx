@@ -40,6 +40,7 @@ export const Section = forwardRef<HTMLElement, SectionProps>(function Section(
       ref={ref}
       id={id}
       data-screen-label={label}
+      data-chapter-reveal
       className={cn(
         "relative mx-auto w-full max-w-content px-6 py-24 md:px-16",
         className,

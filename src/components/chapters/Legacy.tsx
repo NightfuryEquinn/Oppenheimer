@@ -73,8 +73,9 @@ export function Legacy() {
           ))}
         </div>
 
-        <div className="mt-20 text-center font-mono text-xs tracking-[0.3em] text-ink-faint">
-          END OF FILE
+        <div className="mt-20 text-center font-mono text-xs tracking-[0.3em] text-ink-faint flex flex-col gap-10">
+          <span><b>Disclaimer:</b> Background music taken from Oppenheimer - Ground Zero by Ludwig Göransson</span>
+          <span>END OF FILE</span>
         </div>  
       </div>
     </section>
