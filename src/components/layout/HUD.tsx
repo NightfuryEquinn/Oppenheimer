@@ -38,7 +38,24 @@ export const HUD = forwardRef<HTMLElement>(function HUD(_, ref) {
         <span className="font-medium tracking-[0.35em] text-paper">OPPENHEIMER</span>
       </div>
 
-      <nav className="hidden items-center gap-10 lg:gap-12 md:flex">
+      <nav className="hidden items-center gap-8 md:flex xl:hidden">
+        {NAV_CHAPTERS.map((ch) => (
+          <a
+            key={ch.id}
+            href={ch.href}
+            data-nav={ch.dataNav}
+            aria-label={ch.label}
+            className={cn(
+              "relative transition-colors hover:text-paper",
+              activeId === ch.id ? "text-amber" : "text-ink-dim",
+            )}
+          >
+            {ch.dataNav}
+          </a>
+        ))}
+      </nav>
+
+      <nav className="hidden items-center gap-10 xl:flex xl:gap-12">
         {NAV_CHAPTERS.map((ch) => (
           <a
             key={ch.id}

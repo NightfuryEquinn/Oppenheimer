@@ -1,4 +1,4 @@
-import { useScreenLimit } from "@/hooks/useScreenLimit";
+import { MIN_VIEWPORT_WIDTH, useScreenLimit } from "@/hooks/useScreenLimit";
 import { useEffect } from "react";
 
 export function ScreenLimitOverlay() {
@@ -41,7 +41,7 @@ export function ScreenLimitOverlay() {
         </p>
 
         <div className="space-y-2 border border-rule bg-bg/40 p-4 font-mono text-[11px] tracking-[0.16em] text-ink-dim uppercase">
-          <div>Minimum width: 1281px</div>
+          <div>Minimum width: {MIN_VIEWPORT_WIDTH}px</div>
           <div>Recommended: Laptop or PC</div>
           <div>Current window: too narrow</div>
         </div>

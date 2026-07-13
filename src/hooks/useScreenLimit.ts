@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-const SCREEN_LIMIT_QUERY = "(max-width: 1280px)";
+export const MIN_VIEWPORT_WIDTH = 1024;
+const SCREEN_LIMIT_QUERY = `(max-width: ${MIN_VIEWPORT_WIDTH - 1}px)`;
 
 export function useScreenLimit() {
   const [isLimited, setIsLimited] = useState(() =>
