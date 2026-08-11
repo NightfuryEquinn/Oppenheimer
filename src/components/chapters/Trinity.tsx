@@ -1,26 +1,35 @@
 import nukeSfx from "@/assets/nuke.mp3";
 import { ChapterHead, Section } from "@/components/layout/ChapterHead";
 import { cn } from "@/lib/cn";
+import { getBlastParam } from "@/lib/perf/devFlags";
+import { createVisibilityGate } from "@/lib/perf/visibilityGate";
 import { TRINITY_LOG_SCHEDULE, TrinityCanvas } from "@/scenes/trinity/TrinityCanvas";
 import type { TrinityLogEntry, TrinityMode } from "@/types";
 import { Howl } from "howler";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const NUKE_SOUND_DELAY_MS = 3000;
+const DISPLAY_THROTTLE_MS = 100;
+/** The shader's own dissipate curve reaches 0 by bt=28 (trinityShader.ts smoothstep(8,28,bt)); nothing visible changes past that, so stop advancing. */
+const BLAST_SETTLE_T = 28;
+/** ?blast=N freezes the shader at a fixed uBlast for reproducible screenshot diffing. */
+const DEBUG_BLAST = getBlastParam();
 
 export function Trinity() {
-  const [mode, setMode] = useState<TrinityMode>("idle");
-  const [blastT, setBlastT] = useState(-1);
+  const [mode, setMode] = useState<TrinityMode>(DEBUG_BLAST !== null ? "blast" : "idle");
   const [log, setLog] = useState<TrinityLogEntry[]>([
     { text: "SYSTEM IDLE — Awaiting command." },
   ]);
   const [displayT, setDisplayT] = useState("10.0 s");
+  const stageRef = useRef<HTMLDivElement>(null);
   const t0Ref = useRef(0);
   const logIdxRef = useRef(0);
-  const modeRef = useRef<TrinityMode>("idle");
-  const blastRef = useRef(-1);
+  const modeRef = useRef<TrinityMode>(DEBUG_BLAST !== null ? "blast" : "idle");
+  const blastRef = useRef(DEBUG_BLAST ?? -1);
   const nukeSoundRef = useRef<Howl | null>(null);
   const nukeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const getBlast = useCallback(() => blastRef.current, []);
 
   function cancelNukeSound() {
     if (nukeTimerRef.current) {
@@ -66,12 +75,13 @@ export function Trinity() {
   }, [mode]);
 
   useEffect(() => {
-    blastRef.current = blastT;
-  }, [blastT]);
+    if (DEBUG_BLAST !== null) return;
+    const stage = stageRef.current;
+    if (!stage) return;
 
-  useEffect(() => {
     let raf = 0;
     let last = performance.now();
+    let lastDisplayAt = 0;
 
     const step = (now: number) => {
       raf = requestAnimationFrame(step);
@@ -82,7 +92,10 @@ export function Trinity() {
       if (m === "countdown") {
         const elapsed = (now - t0Ref.current) / 1000;
         const cd = Math.max(0, 10 - elapsed);
-        setDisplayT(`${cd.toFixed(1)} s`);
+        if (now - lastDisplayAt >= DISPLAY_THROTTLE_MS) {
+          lastDisplayAt = now;
+          setDisplayT(`${cd.toFixed(1)} s`);
+        }
 
         while (logIdxRef.current < TRINITY_LOG_SCHEDULE.length) {
           const item = TRINITY_LOG_SCHEDULE[logIdxRef.current]!;
@@ -94,7 +107,6 @@ export function Trinity() {
 
         if (cd <= 0) {
           setMode("flash");
-          setBlastT(0);
           blastRef.current = 0;
           setLog((prev) => [
             ...prev,
@@ -107,10 +119,9 @@ export function Trinity() {
         }
       }
 
-      if (m === "flash" || m === "blast" || m === "aftermath") {
-        const next = Math.min(blastRef.current + dt, 30);
+      if ((m === "flash" || m === "blast" || m === "aftermath") && blastRef.current < BLAST_SETTLE_T) {
+        const next = Math.min(blastRef.current + dt, BLAST_SETTLE_T);
         blastRef.current = next;
-        setBlastT(next);
 
         if (next > 3 && modeRef.current === "flash") {
           setMode("blast");
@@ -133,14 +144,28 @@ export function Trinity() {
       }
     };
 
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    const gate = createVisibilityGate(
+      stage,
+      () => {
+        if (raf) return;
+        last = performance.now();
+        raf = requestAnimationFrame(step);
+      },
+      () => {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      },
+    );
+
+    return () => {
+      gate.disconnect();
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   function reset() {
     cancelNukeSound();
     setMode("idle");
-    setBlastT(-1);
     blastRef.current = -1;
     setDisplayT("10.0 s");
     setLog([{ text: "SYSTEM IDLE — Awaiting command." }]);
@@ -166,8 +191,11 @@ export function Trinity() {
         title="05:29:45 Mountain War Time."
       />
 
-      <div className="relative mb-6 aspect-16/10 min-h-[400px] overflow-hidden border border-rule bg-[#030408]">
-        <TrinityCanvas blastT={blastT} />
+      <div
+        ref={stageRef}
+        className="relative mb-6 aspect-16/10 min-h-[400px] overflow-hidden border border-rule bg-[#030408]"
+      >
+        <TrinityCanvas getBlast={getBlast} />
 
         <div className="pointer-events-none absolute top-4 left-4 z-10 space-y-2 font-mono text-xs tracking-wider">
           <div className="text-ink-dim">

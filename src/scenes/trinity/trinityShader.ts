@@ -80,8 +80,8 @@ vec3 fireRamp(float x) {
 float shockRing(vec2 p, vec2 origin, float bt) {
   float d = distance(p, origin);
   float radius = bt * 0.40;
-  float ring = exp(-pow((d - radius) * 17.0, 2.0));
-  return ring * exp(-bt * 0.5) * smoothstep(0.04, 0.35, bt);
+  float ring = exp(-pow((d - radius) * 17.0, 2.0) - bt * 0.5);
+  return ring * smoothstep(0.04, 0.35, bt);
 }
 
 float pileusRing(vec2 q, float y, float rx, float ry, float bt, float phase) {
@@ -98,15 +98,27 @@ vec3 mushroomCloud(vec2 p, vec2 O, float bt, float uTime) {
   float dissipate = 1.0 - smoothstep(8.0, 28.0, bt);
   if (dissipate < 0.006 || grow < 0.02) return vec3(0.0);
 
-  vec2 q = p - O;
+  // bt/grow-only terms, hoisted so the screen-space bound below can reject a pixel
+  // before any of the ~400 noise-hash evaluations in this function run.
+  float stemH = grow * (0.12 + smoothstep(0.8, 7.0, bt) * 0.32);
+  float capBase = stemH * 0.82;
+  float capRx = 0.03 + grow * 0.34;
+
+  vec2 q0 = p - O;
+  // capRy = capRx * (0.38 + n1 * 0.14) with n1 in [0, ~1], so capRx * 0.52 bounds it
+  // without having to evaluate n1 (which would defeat the point of an early-out).
+  float capRyMax = capRx * 0.52;
+  float boundX = capRx * 2.1 + 0.1;
+  float boundYHi = capBase + capRyMax * 1.9 + 0.1;
+  if (q0.x < -boundX || q0.x > boundX || q0.y < -0.12 || q0.y > boundYHi) return vec3(0.0);
+
+  vec2 q = q0;
   float t = bt * 0.18 + uTime * 0.06;
   vec2 warp = vec2(warpedFbm(q * 3.5 + vec2(t, 0.0)), warpedFbm(q * 3.8 + vec2(0.0, t))) - 0.5;
   q += warp * 0.08 * grow;
 
   float n1 = warpedFbm(q * vec2(5.5, 7.5) - vec2(0.0, bt * 0.32));
   float n2 = fbm(q * vec2(10.0, 13.0) + vec2(bt * 0.2, -uTime * 0.1));
-
-  float stemH = grow * (0.12 + smoothstep(0.8, 7.0, bt) * 0.32);
 
   // Billowing turbulent stem
   float stemT = clamp(q.y / max(stemH, 1e-4), 0.0, 1.0);
@@ -123,9 +135,7 @@ vec3 mushroomCloud(vec2 p, vec2 O, float bt, float uTime) {
   float rings = max(ring1, ring2 * 0.88);
 
   // Cauliflower cap
-  float capBase = stemH * 0.82;
   vec2 capP = q - vec2(warp.x * 0.25, capBase);
-  float capRx = 0.03 + grow * 0.34;
   float capRy = capRx * (0.38 + n1 * 0.14);
   float capMask = smoothstep(1.15, 0.35, length(vec2(capP.x / capRx, capP.y / capRy)));
   float cauliflower = billowCell(capP * vec2(2.8 / capRx, 3.6 / capRy) + vec2(bt * 0.08, -t * 0.5));
@@ -164,10 +174,10 @@ void main() {
   if (blast) {
     float d0 = distance(p0, O);
     float swR = bt * 0.36;
-    float band = exp(-pow((d0 - swR) * 20.0, 2.0)) * exp(-bt * 0.36);
+    float band = exp(-pow((d0 - swR) * 20.0, 2.0) - bt * 0.36);
     vec2 dir0 = (p0 - O) / max(d0, 1e-3);
     wuv -= vec2(dir0.x / aspect, dir0.y) * band * 0.02;
-    float sh = exp(-d0 * 2.4) * min(bt * 2.2, 1.0) * exp(-bt * 0.07);
+    float sh = exp(-d0 * 2.4 - bt * 0.07) * min(bt * 2.2, 1.0);
     wuv += (vec2(fbm(p0 * 32.0 + uTime * 2.8), fbm(p0 * 32.0 - uTime * 2.1 + 50.0)) - 0.5) * 0.008 * sh;
   }
 
@@ -220,39 +230,43 @@ void main() {
   }
 
   if (blast) {
-    float fbLife = smoothstep(0.0, 0.12, bt) * (1.0 - smoothstep(3.0, 7.5, bt));
-    float fbR = (1.0 - pow(1.0 - min(bt / 1.7, 1.0), 2.0)) * 0.24;
-    float fbDist = distance(p, O);
-    float fbShell = smoothstep(fbR, fbR * 0.48, fbDist);
-    if (fbShell > 0.001 && fbLife > 0.01) {
-      float fbCore = 1.0 - fbDist / max(fbR, 1e-4);
-      float turb = warpedFbm(vec2(p.x * 7.5, p.y * 7.5 - bt * 1.0));
-      vec3 fbCol = fireRamp((0.45 + fbCore * 1.5) * (0.5 + turb * 0.85) * coolFire);
-      fbCol += vec3(1.0, 0.95, 0.85) * pow(fbCore, 3.0) * hotCore * 2.2;
-      col = mix(col, fbCol, fbShell * fbLife * 0.95);
-    }
+    // Below bt=0.12 the whole frame is overwritten to solid white a few lines down
+    // (the ignition flash), so none of the fireball/cloud shading below is visible yet.
+    if (bt >= 0.12) {
+      float fbLife = smoothstep(0.0, 0.12, bt) * (1.0 - smoothstep(3.0, 7.5, bt));
+      float fbR = (1.0 - pow(1.0 - min(bt / 1.7, 1.0), 2.0)) * 0.24;
+      float fbDist = distance(p, O);
+      float fbShell = smoothstep(fbR, fbR * 0.48, fbDist);
+      if (fbShell > 0.001 && fbLife > 0.01) {
+        float fbCore = 1.0 - fbDist / max(fbR, 1e-4);
+        float turb = warpedFbm(vec2(p.x * 7.5, p.y * 7.5 - bt * 1.0));
+        vec3 fbCol = fireRamp((0.45 + fbCore * 1.5) * (0.5 + turb * 0.85) * coolFire);
+        fbCol += vec3(1.0, 0.95, 0.85) * pow(fbCore, 3.0) * hotCore * 2.2;
+        col = mix(col, fbCol, fbShell * fbLife * 0.95);
+      }
 
-    vec3 cloud = mushroomCloud(p, O, bt, uTime);
-    float cloudDens = cloud.x;
-    float cloudHeat = cloud.y;
-    float cloudSoft = cloud.z;
-    if (cloudDens > 0.003) {
-      float cn = warpedFbm(vec2(p.x * 8.5, p.y * 5.8 - bt * 0.38));
-      float grow = 1.0 - exp(-bt * 0.45);
-      float lit = smoothstep(-0.12 * grow - 0.04, 0.18 * grow + 0.06, (p.x - O.x));
-      lit = mix(lit, lit * (0.7 + cn * 0.5), 0.4);
+      vec3 cloud = mushroomCloud(p, O, bt, uTime);
+      float cloudDens = cloud.x;
+      float cloudHeat = cloud.y;
+      float cloudSoft = cloud.z;
+      if (cloudDens > 0.003) {
+        float cn = warpedFbm(vec2(p.x * 8.5, p.y * 5.8 - bt * 0.38));
+        float grow = 1.0 - exp(-bt * 0.45);
+        float lit = smoothstep(-0.12 * grow - 0.04, 0.18 * grow + 0.06, (p.x - O.x));
+        lit = mix(lit, lit * (0.7 + cn * 0.5), 0.4);
 
-      vec3 ashShadow = vec3(0.14, 0.11, 0.10);
-      vec3 ashMid = vec3(0.32, 0.26, 0.22);
-      vec3 ashLit = vec3(0.88, 0.62, 0.42);
-      vec3 smokeCol = mix(ashShadow, mix(ashMid, ashLit, lit), clamp(cloudDens * 1.1, 0.0, 1.0));
+        vec3 ashShadow = vec3(0.14, 0.11, 0.10);
+        vec3 ashMid = vec3(0.32, 0.26, 0.22);
+        vec3 ashLit = vec3(0.88, 0.62, 0.42);
+        vec3 smokeCol = mix(ashShadow, mix(ashMid, ashLit, lit), clamp(cloudDens * 1.1, 0.0, 1.0));
 
-      float heat = cloudDens * (0.12 + coolFire * 1.1 + cloudHeat * 0.55) * (0.5 + cn * 0.65);
-      vec3 cloudCol = mix(smokeCol, fireRamp(heat), clamp(coolFire * 1.35, 0.0, 1.0));
+        float heat = cloudDens * (0.12 + coolFire * 1.1 + cloudHeat * 0.55) * (0.5 + cn * 0.65);
+        vec3 cloudCol = mix(smokeCol, fireRamp(heat), clamp(coolFire * 1.35, 0.0, 1.0));
 
-      float alpha = clamp(cloudDens * 1.15 * dissipate, 0.0, 1.0);
-      alpha *= 1.0 - cloudSoft * 0.45;
-      col = mix(col, cloudCol, alpha);
+        float alpha = clamp(cloudDens * 1.15 * dissipate, 0.0, 1.0);
+        alpha *= 1.0 - cloudSoft * 0.45;
+        col = mix(col, cloudCol, alpha);
+      }
     }
 
     float sceneDist = distance(p0, vec2(O.x / aspect, O.y));

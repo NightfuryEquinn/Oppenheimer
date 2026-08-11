@@ -14,6 +14,8 @@ import { Vignette } from "@/components/layout/Vignette";
 import { IntroProvider, useIntro } from "@/context/IntroContext";
 import { useChapterScrollReveal } from "@/hooks/useChapterScrollReveal";
 import { useCoverReveal } from "@/hooks/useCoverReveal";
+import { isPerfOverlayEnabled } from "@/lib/perf/devFlags";
+import { PerfOverlay } from "@/lib/perf/PerfOverlay";
 import "@/styles/index.css";
 import { animate } from "animejs";
 import { useCallback, useEffect, useRef } from "react";
@@ -72,6 +74,7 @@ function AppContent() {
         <Papers />
         <Legacy />
       </main>
+      {isPerfOverlayEnabled() && <PerfOverlay />}
     </>
   );
 }
