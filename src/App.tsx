@@ -14,6 +14,7 @@ import { Vignette } from "@/components/layout/Vignette";
 import { IntroProvider, useIntro } from "@/context/IntroContext";
 import { useChapterScrollReveal } from "@/hooks/useChapterScrollReveal";
 import { useCoverReveal } from "@/hooks/useCoverReveal";
+import { useSmoothScroll } from "@/hooks/useSmoothScroll";
 import { isPerfOverlayEnabled } from "@/lib/perf/devFlags";
 import { PerfOverlay } from "@/lib/perf/PerfOverlay";
 import "@/styles/index.css";
@@ -27,6 +28,7 @@ function AppContent() {
 
   useCoverReveal(coverRef);
   useChapterScrollReveal();
+  useSmoothScroll(phase === "ready");
 
   const handleDeclassified = useCallback(() => {
     setPhase("cover");
