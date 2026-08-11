@@ -1,5 +1,10 @@
+import { getDpr } from "@/lib/perf/dpr";
+import { getUnmaskedRenderer, recordFrame, setRendererInfo } from "@/lib/perf/frameStats";
+import { createVisibilityGate } from "@/lib/perf/visibilityGate";
 import { useEffect, useRef } from "react";
 import { ChainSimulation, MAXF } from "./ChainSimulation";
+
+const STATS_THROTTLE_MS = 100;
 
 interface ChainCanvasProps {
   sim: ChainSimulation;
@@ -19,20 +24,22 @@ export function ChainCanvas({ sim, onStats, className }: ChainCanvasProps) {
       alpha: false,
       depth: false,
       stencil: false,
+      powerPreference: "high-performance",
     });
     if (!gl) return;
 
     const stage = canvas.parentElement;
     if (!stage) return;
 
+    setRendererInfo("chain", getUnmaskedRenderer(gl));
     glStateRef.current = createChainGL(gl, canvas);
 
     function resize() {
       if (!stage) return;
       const w = stage.clientWidth;
       const h = stage.clientHeight;
-      glStateRef.current?.resize(w, h);
       sim.resize(w, h);
+      glStateRef.current?.resize(w, h, sim);
     }
 
     resize();
@@ -41,17 +48,45 @@ export function ChainCanvas({ sim, onStats, className }: ChainCanvasProps) {
 
     let raf = 0;
     let last = performance.now();
+    let lastFission = -1;
+    let lastGen = -1;
+    let lastStatsAt = 0;
+
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
+      recordFrame("chain", now - last);
       const dt = Math.min((now - last) / 1000, 0.05) || 0.016;
       last = now;
       sim.step(dt);
       glStateRef.current?.render(sim, now / 1000);
-      onStats?.();
+
+      if (
+        onStats &&
+        (sim.fissionCount !== lastFission || sim.currentGen !== lastGen) &&
+        now - lastStatsAt >= STATS_THROTTLE_MS
+      ) {
+        lastFission = sim.fissionCount;
+        lastGen = sim.currentGen;
+        lastStatsAt = now;
+        onStats();
+      }
     };
-    raf = requestAnimationFrame(tick);
+
+    const gate = createVisibilityGate(
+      stage,
+      () => {
+        if (raf) return;
+        last = performance.now();
+        raf = requestAnimationFrame(tick);
+      },
+      () => {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      },
+    );
 
     return () => {
+      gate.disconnect();
       cancelAnimationFrame(raf);
       ro.disconnect();
       glStateRef.current?.dispose();
@@ -68,7 +103,7 @@ export function ChainCanvas({ sim, onStats, className }: ChainCanvasProps) {
 }
 
 function createChainGL(gl: WebGLRenderingContext, canvas: HTMLCanvasElement) {
-  const DPR = Math.min(window.devicePixelRatio, 2);
+  const DPR = getDpr();
   let W = 0;
   let H = 0;
 
@@ -95,31 +130,37 @@ function createChainGL(gl: WebGLRenderingContext, canvas: HTMLCanvasElement) {
     precision mediump float; varying vec2 vUv; uniform sampler2D uT;
     void main(){ vec4 c = texture2D(uT, vUv); gl_FragColor = max(c * 0.930 - 0.0045, 0.0); }`;
 
+  // Neutron point sprites: position-only per-vertex data, size/intensity are per-draw uniforms
+  // so the same packed buffer serves both the trail-glow pass and the bright-core pass.
   const POINT_VS = `
-    attribute vec4 aP; uniform vec2 uRes; uniform float uDPR; varying float vI;
+    attribute vec2 aP; uniform vec2 uRes; uniform float uDPR; uniform float uSize;
     void main(){
-      vec2 clip = (aP.xy / uRes) * 2.0 - 1.0;
+      vec2 clip = (aP / uRes) * 2.0 - 1.0;
       gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
-      gl_PointSize = aP.z * uDPR; vI = aP.w;
+      gl_PointSize = uSize * uDPR;
     }`;
 
   const POINT_FS = `
-    precision mediump float; varying float vI; uniform vec3 uCol;
+    precision mediump float; uniform vec3 uCol; uniform float uIntensity;
     void main(){
       float d = length(gl_PointCoord - 0.5) * 2.0;
       float a = smoothstep(1.0, 0.0, d); a *= a;
-      gl_FragColor = vec4(uCol * a * vI, a * vI);
+      gl_FragColor = vec4(uCol * a * uIntensity, a * uIntensity);
     }`;
 
+  // Nuclei: aPos/aR are static (uploaded once per lattice), aDyn (spent, glow) streams per frame.
+  // Point size scales with glow so only lit nuclei pay for the larger halo/overdraw.
   const NUC_VS = `
-    attribute vec2 aPos; attribute vec3 aN; uniform vec2 uRes; uniform float uDPR;
+    attribute vec2 aPos; attribute float aR; attribute vec2 aDyn;
+    uniform vec2 uRes; uniform float uDPR;
     varying float vSpent; varying float vGlow; varying float vCore;
     void main(){
       vec2 clip = (aPos / uRes) * 2.0 - 1.0;
       gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
-      float S = aN.x * 2.0 + 18.0 + aN.z * 14.0;
+      float glow = aDyn.y;
+      float S = aR * 2.0 + 6.0 + glow * 40.0;
       gl_PointSize = S * uDPR;
-      vCore = (aN.x * 2.0) / S; vSpent = aN.y; vGlow = aN.z;
+      vCore = (aR * 2.0) / S; vSpent = aDyn.x; vGlow = glow;
     }`;
 
   const NUC_FS = `
@@ -141,9 +182,12 @@ function createChainGL(gl: WebGLRenderingContext, canvas: HTMLCanvasElement) {
         float core = smoothstep(vCore, vCore * 0.15, r);
         col = mix(vec3(0.46, 0.25, 0.10), vec3(0.93, 0.66, 0.36), core);
         a = body * (0.85 + vGlow * 0.3);
-        float ring = exp(-pow((r - vCore * 1.55) * 9.0, 2.0)) * vGlow;
-        col += vec3(1.0, 0.78, 0.45) * ring;
-        a += ring * 0.6 + exp(-r * 3.0) * vGlow * 0.3;
+        if (vGlow > 0.004) {
+          float rr = (r - vCore * 1.55) * 9.0;
+          float ring = exp(-rr * rr) * vGlow;
+          col += vec3(1.0, 0.78, 0.45) * ring;
+          a += ring * 0.6 + exp(-r * 3.0) * vGlow * 0.3;
+        }
       }
       gl_FragColor = vec4(col * a, a);
     }`;
@@ -164,11 +208,11 @@ function createChainGL(gl: WebGLRenderingContext, canvas: HTMLCanvasElement) {
         vec4 f = uFlash[i];
         float d = distance(p, f.xy);
         float R = f.z * 250.0;
-        float ring = exp(-pow((d - R) * 0.055, 2.0)) * exp(-f.z * 1.7);
+        float ring = exp(-pow((d - R) * 0.055, 2.0) - f.z * 1.7);
         vec2 dir = (p - f.xy) / max(d, 1.0);
         q += dir * ring * 8.0;
         glow += ring * 0.45;
-        glow += exp(-d * 0.02) * exp(-f.z * 4.5) * 1.5;
+        glow += exp(-d * 0.02 - f.z * 4.5) * 1.5;
       }
       vec2 g = abs(fract(q / 42.0) - 0.5);
       float line = smoothstep(0.455, 0.5, max(g.x, g.y));
@@ -197,8 +241,14 @@ function createChainGL(gl: WebGLRenderingContext, canvas: HTMLCanvasElement) {
   gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
 
-  const pointBuf = gl.createBuffer()!;
-  const nucBuf = gl.createBuffer()!;
+  const neutronBuf = gl.createBuffer()!;
+  let neutronCap = 0;
+  let neutronScratch = new Float32Array(0);
+
+  const nucStaticBuf = gl.createBuffer()!;
+  const nucDynamicBuf = gl.createBuffer()!;
+  let nucCount = 0;
+  let nucDynScratch = new Float32Array(0);
 
   let texA: WebGLTexture | null = null;
   let texB: WebGLTexture | null = null;
@@ -244,11 +294,63 @@ function createChainGL(gl: WebGLRenderingContext, canvas: HTMLCanvasElement) {
     clearTrails();
   }
 
+  function uploadNucleiStatic(nuclei: ChainSimulation["nuclei"]) {
+    nucCount = nuclei.length;
+    const staticData = new Float32Array(nucCount * 3);
+    for (let i = 0; i < nucCount; i++) {
+      const n = nuclei[i]!;
+      staticData[i * 3] = n.x;
+      staticData[i * 3 + 1] = n.y;
+      staticData[i * 3 + 2] = n.r;
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, nucStaticBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, staticData, gl.STATIC_DRAW);
+
+    nucDynScratch = new Float32Array(nucCount * 2);
+    gl.bindBuffer(gl.ARRAY_BUFFER, nucDynamicBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, nucDynScratch.byteLength, gl.DYNAMIC_DRAW);
+  }
+
+  function uploadNucleiDynamic(nuclei: ChainSimulation["nuclei"]) {
+    if (!nucCount) return;
+    for (let i = 0; i < nucCount; i++) {
+      const n = nuclei[i]!;
+      nucDynScratch[i * 2] = n.spent ? 1 : 0;
+      nucDynScratch[i * 2 + 1] = n.glow;
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, nucDynamicBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, nucDynScratch);
+  }
+
+  /** Packs neutron positions once; both the glow and core passes read this same buffer. */
+  function packNeutrons(neutrons: ChainSimulation["neutrons"]) {
+    const n = neutrons.length;
+    if (!n) return 0;
+    if (n > neutronScratch.length / 2) {
+      neutronScratch = new Float32Array(Math.max(256, Math.ceil(n * 1.5)) * 2);
+    }
+    for (let i = 0; i < n; i++) {
+      const p = neutrons[i]!;
+      neutronScratch[i * 2] = p.x;
+      neutronScratch[i * 2 + 1] = p.y;
+    }
+    const bytesNeeded = n * 2 * 4;
+    gl.bindBuffer(gl.ARRAY_BUFFER, neutronBuf);
+    if (bytesNeeded > neutronCap) {
+      neutronCap = neutronScratch.byteLength;
+      gl.bufferData(gl.ARRAY_BUFFER, neutronCap, gl.DYNAMIC_DRAW);
+    }
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, neutronScratch.subarray(0, n * 2));
+    return n;
+  }
+
   const U = {
     fadeT: gl.getUniformLocation(fadeProg, "uT"),
     ptRes: gl.getUniformLocation(pointProg, "uRes"),
     ptDpr: gl.getUniformLocation(pointProg, "uDPR"),
     ptCol: gl.getUniformLocation(pointProg, "uCol"),
+    ptSize: gl.getUniformLocation(pointProg, "uSize"),
+    ptIntensity: gl.getUniformLocation(pointProg, "uIntensity"),
     nRes: gl.getUniformLocation(nucProg, "uRes"),
     nDpr: gl.getUniformLocation(nucProg, "uDPR"),
     cTrail: gl.getUniformLocation(compProg, "uTrail"),
@@ -263,28 +365,29 @@ function createChainGL(gl: WebGLRenderingContext, canvas: HTMLCanvasElement) {
     compQ: gl.getAttribLocation(compProg, "aQ"),
     ptP: gl.getAttribLocation(pointProg, "aP"),
     nPos: gl.getAttribLocation(nucProg, "aPos"),
-    nN: gl.getAttribLocation(nucProg, "aN"),
+    nR: gl.getAttribLocation(nucProg, "aR"),
+    nDyn: gl.getAttribLocation(nucProg, "aDyn"),
   };
 
   const flashArr = new Float32Array(MAXF * 4);
 
-  function drawPoints(data: Float32Array, color: [number, number, number]) {
-    const n = data.length / 4;
-    if (!n) return;
+  function drawNeutronPoints(count: number, size: number, intensity: number, color: [number, number, number]) {
+    if (!count) return;
     gl.useProgram(pointProg);
     gl.uniform2f(U.ptRes, W, H);
     gl.uniform1f(U.ptDpr, DPR);
+    gl.uniform1f(U.ptSize, size);
+    gl.uniform1f(U.ptIntensity, intensity);
     gl.uniform3f(U.ptCol, color[0], color[1], color[2]);
-    gl.bindBuffer(gl.ARRAY_BUFFER, pointBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, neutronBuf);
     gl.enableVertexAttribArray(A.ptP);
-    gl.vertexAttribPointer(A.ptP, 4, gl.FLOAT, false, 16, 0);
-    gl.drawArrays(gl.POINTS, 0, n);
+    gl.vertexAttribPointer(A.ptP, 2, gl.FLOAT, false, 8, 0);
+    gl.drawArrays(gl.POINTS, 0, count);
     gl.disableVertexAttribArray(A.ptP);
   }
 
   return {
-    resize(w: number, h: number) {
+    resize(w: number, h: number, sim: ChainSimulation) {
       W = w;
       H = h;
       canvas.width = w * DPR;
@@ -292,6 +395,7 @@ function createChainGL(gl: WebGLRenderingContext, canvas: HTMLCanvasElement) {
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
       rebuildTargets(canvas.width, canvas.height);
+      uploadNucleiStatic(sim.nuclei);
     },
     clearTrails,
     dispose() {
@@ -317,17 +421,11 @@ function createChainGL(gl: WebGLRenderingContext, canvas: HTMLCanvasElement) {
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.disableVertexAttribArray(A.fadeQ);
 
-      if (sim.neutrons.length) {
+      const neutronCount = packNeutrons(sim.neutrons);
+      if (neutronCount) {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE);
-        const d = new Float32Array(sim.neutrons.length * 4);
-        sim.neutrons.forEach((p, i) => {
-          d[i * 4] = p.x;
-          d[i * 4 + 1] = p.y;
-          d[i * 4 + 2] = 7;
-          d[i * 4 + 3] = 0.55;
-        });
-        drawPoints(d, [0.62, 0.78, 1.0]);
+        drawNeutronPoints(neutronCount, 7, 0.55, [0.62, 0.78, 1.0]);
       }
 
       [texA, texB] = [texB, texA];
@@ -359,39 +457,28 @@ function createChainGL(gl: WebGLRenderingContext, canvas: HTMLCanvasElement) {
 
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      if (sim.nuclei.length) {
+      if (nucCount) {
+        uploadNucleiDynamic(sim.nuclei);
         gl.useProgram(nucProg);
         gl.uniform2f(U.nRes, W, H);
         gl.uniform1f(U.nDpr, DPR);
-        const d = new Float32Array(sim.nuclei.length * 5);
-        sim.nuclei.forEach((n, i) => {
-          d[i * 5] = n.x;
-          d[i * 5 + 1] = n.y;
-          d[i * 5 + 2] = n.r;
-          d[i * 5 + 3] = n.spent ? 1 : 0;
-          d[i * 5 + 4] = n.glow;
-        });
-        gl.bindBuffer(gl.ARRAY_BUFFER, nucBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, d, gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, nucStaticBuf);
         gl.enableVertexAttribArray(A.nPos);
-        gl.enableVertexAttribArray(A.nN);
-        gl.vertexAttribPointer(A.nPos, 2, gl.FLOAT, false, 20, 0);
-        gl.vertexAttribPointer(A.nN, 3, gl.FLOAT, false, 20, 8);
-        gl.drawArrays(gl.POINTS, 0, sim.nuclei.length);
+        gl.enableVertexAttribArray(A.nR);
+        gl.vertexAttribPointer(A.nPos, 2, gl.FLOAT, false, 12, 0);
+        gl.vertexAttribPointer(A.nR, 1, gl.FLOAT, false, 12, 8);
+        gl.bindBuffer(gl.ARRAY_BUFFER, nucDynamicBuf);
+        gl.enableVertexAttribArray(A.nDyn);
+        gl.vertexAttribPointer(A.nDyn, 2, gl.FLOAT, false, 8, 0);
+        gl.drawArrays(gl.POINTS, 0, nucCount);
         gl.disableVertexAttribArray(A.nPos);
-        gl.disableVertexAttribArray(A.nN);
+        gl.disableVertexAttribArray(A.nR);
+        gl.disableVertexAttribArray(A.nDyn);
       }
 
-      if (sim.neutrons.length) {
+      if (neutronCount) {
         gl.blendFunc(gl.ONE, gl.ONE);
-        const d = new Float32Array(sim.neutrons.length * 4);
-        sim.neutrons.forEach((p, i) => {
-          d[i * 4] = p.x;
-          d[i * 4 + 1] = p.y;
-          d[i * 4 + 2] = 5;
-          d[i * 4 + 3] = 1.0;
-        });
-        drawPoints(d, [1.0, 1.0, 1.0]);
+        drawNeutronPoints(neutronCount, 5, 1.0, [1.0, 1.0, 1.0]);
       }
       gl.disable(gl.BLEND);
     },

@@ -1,10 +1,26 @@
 import { ChapterHead, Section } from "@/components/layout/ChapterHead";
+import { getSeedParam } from "@/lib/perf/devFlags";
 import { ChainCanvas } from "@/scenes/chain/ChainCanvas";
 import { ChainSimulation } from "@/scenes/chain/ChainSimulation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+const NOTES = [
+  {
+    h: "CRITICAL MASS",
+    p: "The smallest amount of U-235 that sustains a chain reaction: ~52 kg as a bare sphere; far less when surrounded by a neutron reflector.",
+  },
+  {
+    h: "PROMPT NEUTRONS",
+    p: "Most are released within 10⁻¹⁴ s of fission. The entire history of the bomb — from initiator to fireball — is over in under a microsecond.",
+  },
+  {
+    h: "k_eff",
+    p: "If k < 1 the reaction dies. If k = 1 it idles, as in a reactor. If k > 1 it grows exponentially. Trinity reached k ≈ 2.",
+  },
+];
+
 export function ChainReaction() {
-  const sim = useMemo(() => new ChainSimulation(), []);
+  const sim = useMemo(() => new ChainSimulation(getSeedParam() ?? undefined), []);
   const [, setTick] = useState(0);
   const stageRef = useRef<HTMLDivElement>(null);
 
@@ -78,20 +94,7 @@ export function ChainReaction() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {[
-          {
-            h: "CRITICAL MASS",
-            p: "The smallest amount of U-235 that sustains a chain reaction: ~52 kg as a bare sphere; far less when surrounded by a neutron reflector.",
-          },
-          {
-            h: "PROMPT NEUTRONS",
-            p: "Most are released within 10⁻¹⁴ s of fission. The entire history of the bomb — from initiator to fireball — is over in under a microsecond.",
-          },
-          {
-            h: "k_eff",
-            p: "If k < 1 the reaction dies. If k = 1 it idles, as in a reactor. If k > 1 it grows exponentially. Trinity reached k ≈ 2.",
-          },
-        ].map((note) => (
+        {NOTES.map((note) => (
           <div key={note.h} className="border border-rule bg-bg-2/30 p-5">
             <div className="mb-2 font-mono text-base tracking-widest text-amber">{note.h}</div>
             <p className="m-0 text-[18px] text-ink-dim">{note.p}</p>

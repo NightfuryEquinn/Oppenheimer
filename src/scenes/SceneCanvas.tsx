@@ -26,7 +26,7 @@ export function SceneCanvas({
       <Canvas
         dpr={[1, 2]}
         frameloop={active ? "always" : "demand"}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         camera={camera ?? { fov: 45, position: [0, 0, 22], near: 0.1, far: 200 }}
         {...props}
       >
